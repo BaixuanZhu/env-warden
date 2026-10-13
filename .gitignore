@@ -1,0 +1,19 @@
+# 构建产物
+/bin/
+/dist/
+*.exe
+
+# 测试与覆盖率
+*.test
+*.out
+
+# GUI（M4，Wails）
+gui/frontend/node_modules/
+gui/build/
+
+# IDE
+.idea/
+.vscode/
+
+# 系统杂项
+Thumbs.db
