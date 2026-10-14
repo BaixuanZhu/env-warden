@@ -14,11 +14,13 @@ type ValueKind uint32
 
 // 注册表值类型常量，仅列本工具会用到的。
 const (
-	KindNone     ValueKind = 0 // REG_NONE
-	KindSZ       ValueKind = 1 // REG_SZ
-	KindExpandSZ ValueKind = 2 // REG_EXPAND_SZ
-	KindBinary   ValueKind = 3 // REG_BINARY
-	KindDWORD    ValueKind = 4 // REG_DWORD
+	KindNone     ValueKind = 0  // REG_NONE
+	KindSZ       ValueKind = 1  // REG_SZ
+	KindExpandSZ ValueKind = 2  // REG_EXPAND_SZ
+	KindBinary   ValueKind = 3  // REG_BINARY
+	KindDWORD    ValueKind = 4  // REG_DWORD
+	KindMultiSZ  ValueKind = 7  // REG_MULTI_SZ
+	KindQWord    ValueKind = 11 // REG_QWORD
 )
 
 // String 返回与注册表工具一致的类型名。
@@ -34,6 +36,10 @@ func (k ValueKind) String() string {
 		return "REG_BINARY"
 	case KindDWORD:
 		return "REG_DWORD"
+	case KindMultiSZ:
+		return "REG_MULTI_SZ"
+	case KindQWord:
+		return "REG_QWORD"
 	default:
 		return fmt.Sprintf("REG_%d", uint32(k))
 	}

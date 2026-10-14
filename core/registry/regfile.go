@@ -118,7 +118,8 @@ func parseValueLine(line string) (RegValue, error) {
 		if closeIdx < 0 || !strings.HasPrefix(body[closeIdx:], "):") {
 			return RegValue{}, fmt.Errorf("ParseRegFile: hex(N) 语法错误: %q", line)
 		}
-		kindNum, err := strconv.ParseUint(body[4:closeIdx], 10, 32)
+		// 类型号按十六进制解析：REG_QWORD 等两位数类型 regedit 以 hex(b) 形式导出。
+		kindNum, err := strconv.ParseUint(body[4:closeIdx], 16, 32)
 		if err != nil {
 			return RegValue{}, fmt.Errorf("ParseRegFile: hex(N) 类型号解析失败: %w", err)
 		}

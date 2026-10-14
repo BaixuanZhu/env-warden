@@ -27,28 +27,11 @@ func RunCheck(args []string) int {
 		return 2
 	}
 
-	system, err := registry.ReadPath(registry.ScopeSystem)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "envwarden check: %v\n", err)
-		return 2
-	}
-	user, err := registry.ReadPath(registry.ScopeUser)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "envwarden check: %v\n", err)
-		return 2
-	}
-	sysVars, err := registry.ReadStringValues(registry.ScopeSystem)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "envwarden check: %v\n", err)
-		return 2
-	}
-	usrVars, err := registry.ReadStringValues(registry.ScopeUser)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "envwarden check: %v\n", err)
-		return 2
+	system, user, vars, exit := readCheckInputs("check")
+	if exit != 0 {
+		return exit
 	}
 
-	vars := detect.ComposeVars(sysVars, usrVars)
 	pathext := detect.PathExtFromVars(vars)
 	commands := splitCommands(*cmdsFlag)
 	rep := detect.Check(system, user, vars, pathext, commands, npmPrefix())
