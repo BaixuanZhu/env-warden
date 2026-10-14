@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"envwarden/core/backup"
-	"envwarden/core/broadcast"
 	"envwarden/core/detect"
 	"envwarden/core/mutate"
 	"envwarden/core/registry"
+	"envwarden/internal/ops"
 )
 
 // RunClean 实现 clean 子命令：检测死条目（可叠加手写条目），
@@ -120,66 +120,49 @@ func RunClean(args []string) int {
 		return 0
 	}
 
-	// 变更前复检：确认期间 PATH 被外部修改则放弃，避免基于旧快照覆盖新变更。
-	for _, p := range plans {
+	// 提交流水线（复检 → 强制备份 → 写入 → 校验 → 广播）由 internal/ops 统一实现。
+	changes := make([]ops.PathChange, len(plans))
+	for i, p := range plans {
 		pd := system
 		if p.Scope == registry.ScopeUser {
 			pd = user
 		}
-		cur, err := registry.ReadPath(p.Scope)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "envwarden clean: 复检失败: %v\n", err)
-			return 2
-		}
-		if cur.Raw != pd.Raw {
-			fmt.Fprintf(os.Stderr, "envwarden clean: %s级 PATH 在确认期间被外部修改，未做任何变更，请重新运行\n", scopeName(p.Scope))
-			return 2
-		}
+		changes[i] = ops.PathChange{Scope: p.Scope, OldRaw: pd.Raw, NewRaw: p.NewRaw, Kind: p.Kind}
 	}
-
-	// 强制备份（不可跳过）：仅备份将被修改的作用域。
-	now := time.Now()
-	var backupPaths []string
-	for _, p := range plans {
-		path, err := backup.WriteScopeFile(*dirFlag, p.Scope, now)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "envwarden clean: 备份失败，已中止（未做任何变更）: %v\n", err)
-			return 2
-		}
-		backupPaths = append(backupPaths, path)
-		fmt.Printf("已写入备份: %s\n", path)
-	}
-
-	// 写入并逐作用域校验：条目与值类型必须与计划一致，否则立即报错并指向备份。
-	for _, p := range plans {
-		newPD, err := registry.NewPathData(p.Scope, p.NewRaw, p.Kind)
-		if err != nil {
+	res, err := ops.CommitPath(*dirFlag, changes, time.Now())
+	if err != nil {
+		switch {
+		case errors.Is(err, ops.ErrPathChanged):
+			fmt.Fprintf(os.Stderr, "envwarden clean: %s级 PATH 在确认期间被外部修改，未做任何变更，请重新运行\n", scopeOfChanges(changes))
+		case errors.Is(err, registry.ErrAccessDenied):
+			fmt.Fprintf(os.Stderr, "envwarden clean: %s级写入被拒绝，请在管理员终端重新运行: %v\n", scopeOfChanges(changes), err)
+		default:
 			fmt.Fprintf(os.Stderr, "envwarden clean: %v\n", err)
-			return exitWriteFailed(backupPaths)
 		}
-		if err := registry.WritePath(newPD); err != nil {
-			if errors.Is(err, registry.ErrAccessDenied) {
-				fmt.Fprintf(os.Stderr, "envwarden clean: %s级写入被拒绝，请在管理员终端重新运行: %v\n", scopeName(p.Scope), err)
-			} else {
-				fmt.Fprintf(os.Stderr, "envwarden clean: %s级写入失败: %v\n", scopeName(p.Scope), err)
-			}
-			return exitWriteFailed(backupPaths)
-		}
-		cur, err := registry.ReadPath(p.Scope)
-		if err != nil || cur.Raw != p.NewRaw || cur.Kind != p.Kind {
-			fmt.Fprintf(os.Stderr, "envwarden clean: %s级写后校验失败（结果与计划不一致）: %v\n", scopeName(p.Scope), err)
-			return exitWriteFailed(backupPaths)
-		}
+		return exitWriteFailed(res.Backups)
+	}
+	for _, p := range res.Backups {
+		fmt.Printf("已写入备份: %s\n", p)
+	}
+	for _, p := range plans {
 		fmt.Printf("%s PATH: 移除 %d 条，保留 %d 条（值类型 %s 保持不变）\n",
 			scopeName(p.Scope), len(p.Removed), len(p.Kept), p.Kind)
 	}
 
-	// 广播失败不回滚（变更已生效），仅警告。
-	if err := broadcast.NotifyEnvironmentChange(); err != nil {
-		fmt.Fprintf(os.Stderr, "警告: %v；新终端可能需注销重登后才能拿到新 PATH\n", err)
+	if res.BroadcastErr != nil {
+		fmt.Fprintf(os.Stderr, "警告: %v；新终端可能需注销重登后才能拿到新 PATH\n", res.BroadcastErr)
 	}
 	fmt.Println("已广播 WM_SETTINGCHANGE。请打开新终端验证 PATH（已开着的旧终端仍持有旧值）。")
 	return 0
+}
+
+// scopeOfChanges 汇总变更涉及的作用域中文名，用于错误提示。
+func scopeOfChanges(changes []ops.PathChange) string {
+	var names []string
+	for _, c := range changes {
+		names = append(names, scopeName(c.Scope))
+	}
+	return strings.Join(names, "、")
 }
 
 // readCheckInputs 一次性读取体检链所需的注册表输入：两级 PATH 与全部环境变量。

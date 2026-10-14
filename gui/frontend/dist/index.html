@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>env-warden</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="topbar">
+  <div class="brand">
+    <span class="logo">⛨</span>
+    <span class="name">env-warden</span>
+    <span id="version" class="ver"></span>
+    <span id="elevBadge" class="badge elev hidden">管理员</span>
+  </div>
+  <div class="actions">
+    <input id="search" type="search" placeholder="搜索条目…" autocomplete="off">
+    <button id="btnCheck" class="primary" title="重新读取注册表并体检">体检</button>
+    <button id="btnDiff" title="上次体检以来 PATH 变了什么">快照对比</button>
+    <button id="btnBackups" title="列出自动备份并支持一键还原">备份与还原</button>
+    <button id="btnBackupNow" title="立即导出两级 Environment 键">立即备份</button>
+  </div>
+</header>
+
+<div id="npmBar" class="npmbar">
+  <span id="npmStatus" class="npm-status">npm prefix：未体检</span>
+  <span id="cmdSummary" class="cmd-summary"></span>
+</div>
+
+<main id="main">
+  <div id="loading">正在读取注册表（新终端视角）…</div>
+</main>
+
+<div id="selBar" class="selbar hidden">
+  <span id="selCount">已选 0 条死条目</span>
+  <button id="btnCleanSel" class="danger">清理所选…</button>
+  <button id="btnSelAll">全选死条目</button>
+  <button id="btnSelNone">清除选择</button>
+</div>
+
+<footer id="statusbar"><span id="status"></span><span id="dirs" class="dirs"></span></footer>
+
+<div id="modalMask" class="modal-mask hidden">
+  <div id="modal" class="modal"></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

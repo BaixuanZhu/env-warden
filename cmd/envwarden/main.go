@@ -1,17 +1,19 @@
 // Command envwarden 是 Windows 环境变量体检、诊断与安全清理的命令行入口。
 //
-// 子命令：check（体检，自动存快照）、backup（备份）、clean（安全清理）、diff（快照对比）。
+// 子命令：check（体检，自动存快照）、backup（备份）、clean（安全清理）、
+// diff（快照对比）、reorder（调整顺序）、restore（从备份还原）、gui（桌面 GUI）。
 package main
 
 import (
 	"fmt"
 	"os"
 
+	"envwarden/gui"
 	"envwarden/internal/cli"
 )
 
-// version 为当前构建版本。
-const version = "0.0.1-dev"
+// version 为当前构建版本，与 GUI 展示共用同一来源。
+const version = gui.Version
 
 func main() {
 	if len(os.Args) < 2 {
@@ -29,6 +31,15 @@ func main() {
 		os.Exit(cli.RunClean(os.Args[2:]))
 	case "diff":
 		os.Exit(cli.RunDiff(os.Args[2:]))
+	case "reorder":
+		os.Exit(cli.RunReorder(os.Args[2:]))
+	case "restore":
+		os.Exit(cli.RunRestore(os.Args[2:]))
+	case "gui":
+		if err := gui.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "envwarden gui: %v\n", err)
+			os.Exit(2)
+		}
 	default:
 		usage()
 		os.Exit(2)
@@ -48,12 +59,15 @@ func usage() {
   envwarden clean -dry-run     只展示计划，不做任何变更
   envwarden clean -entry "F:\死路径\bin"   叠加手写条目（可多次指定，须与 check 报告逐字一致）
   envwarden clean -scope system -y         系统级清理需在管理员终端运行
+  envwarden reorder -scope user -from 2 -to 1   调整 PATH 顺序（优先级 = 顺序，强制先备份）
+  envwarden restore 备份.reg   从 .reg 备份整键还原（自动识别作用域，还原前再备份当前值）
   envwarden diff               上次体检快照 vs 当前注册表（PATH 变了什么）
   envwarden diff 旧.json 新.json           两个快照文件互比
+  envwarden gui                启动桌面 GUI（Wails / WebView2）
   envwarden -v | --version     显示版本
 
 退出码：check：0 = 通过，1 = 发现问题，2 = 无法执行；
-       backup / clean：0 = 成功，2 = 无法执行；
+       backup / clean / reorder / restore：0 = 成功，2 = 无法执行；
        diff：0 = 无变化，1 = 发现变化，2 = 无法执行。
 check 每次运行自动保存快照到 %%LOCALAPPDATA%%\envwarden\snapshots。
 `, version)

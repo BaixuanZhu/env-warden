@@ -15,15 +15,15 @@ import (
 	"envwarden/core/snapshot"
 )
 
-// defaultCommands 是工具链回归的缺省命令清单。
-const defaultCommands = "node,npm,npx,git,java,mvn"
+// DefaultCommands 是工具链回归的缺省命令清单，CLI 与 GUI 共用。
+const DefaultCommands = "node,npm,npx,git,java,mvn"
 
 // RunCheck 实现 check 子命令：读取两级注册表 PATH 与环境变量（新终端视角），
 // 运行四类检测并输出中文报告。
 // 返回值：0 = 全部通过；1 = 发现问题；2 = 无法完成体检（注册表读取失败等）。
 func RunCheck(args []string) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
-	cmdsFlag := fs.String("cmds", defaultCommands, "工具链回归要解析的命令清单（逗号分隔）")
+	cmdsFlag := fs.String("cmds", DefaultCommands, "工具链回归要解析的命令清单（逗号分隔）")
 	snapFlag := fs.Bool("snapshot", true, "体检后保存快照（供 diff 对比；-snapshot=false 跳过）")
 	snapDirFlag := fs.String("snapshot-dir", defaultSnapshotDir(), "快照存储目录")
 	if err := fs.Parse(args); err != nil {
@@ -37,7 +37,7 @@ func RunCheck(args []string) int {
 
 	pathext := detect.PathExtFromVars(vars)
 	commands := splitCommands(*cmdsFlag)
-	rep := detect.Check(system, user, vars, pathext, commands, npmPrefix())
+	rep := detect.Check(system, user, vars, pathext, commands, NpmPrefix())
 
 	renderCheckReport(os.Stdout, rep)
 	if *snapFlag {
@@ -66,9 +66,9 @@ func splitCommands(s string) []string {
 	return out
 }
 
-// npmPrefix 执行 npm config get prefix 获取全局 prefix；npm 不可用或超时返回空串。
+// NpmPrefix 执行 npm config get prefix 获取全局 prefix；npm 不可用或超时返回空串。
 // 查找 npm 走当前进程 PATH（只影响用哪个 npm，prefix 与 PATH 的比对仍是注册表新视角）。
-func npmPrefix() string {
+func NpmPrefix() string {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, "npm", "config", "get", "prefix").Output()

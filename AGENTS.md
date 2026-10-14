@@ -7,14 +7,14 @@ env-warden 是 Windows 环境变量管理工具，核心是 PATH 的体检、诊
 ## Setup commands
 
 - Install: `scoop install go`（Go ≥ 1.26，Windows）
-- Build: `go build ./...`
-- Build CLI: `go build -o bin/envwarden.exe ./cmd/envwarden`
+- Build: `go build ./...`（编译检查；此产物的 `gui` 子命令只会弹 Wails tag 提示框）
+- Build 发布二进制（CLI + GUI 可用）: `go build -tags production -o bin/envwarden.exe ./cmd/envwarden`
 - Test: `go test ./...`
 - Vet: `go vet ./...`
 - 格式检查：`gofmt -l .`（必须无输出）
 - 依赖变更后：`go mod tidy`
 
-第三方依赖原则：优先标准库；`golang.org/x/sys`（注册表 / Win32 API）是预期内的主要第三方依赖，新增依赖须说明理由。CLI 参数解析用标准库 `flag` 子命令风格，不引入 cobra 之类的框架。
+第三方依赖原则：优先标准库；`golang.org/x/sys`（注册表 / Win32 API）与 `github.com/wailsapp/wails/v2`（GUI，交接文档已定决策）是预期内的主要第三方依赖，新增依赖须说明理由。CLI 参数解析用标准库 `flag` 子命令风格，不引入 cobra 之类的框架。GUI 前端为无构建步骤的原生 HTML/JS/CSS（内嵌于 `gui/frontend/dist`），不引入 node 工具链。
 
 ## Code style
 
@@ -32,7 +32,7 @@ env-warden 是 Windows 环境变量管理工具，核心是 PATH 的体检、诊
 核心数据流：
 
 - 体检链：`registry`（读两级 PATH，新终端视角）→ `detect`（死条目 / 重复 / 命令解析 / npm prefix）→ 报告。
-- 变更链：`mutate`（精确过滤）→ 写回前强制 `backup`（.reg 导出）→ `registry` 类型保持写入 → `broadcast`（WM_SETTINGCHANGE）。
+- 变更链（提交流水线在 `internal/ops`，CLI 与 GUI 共用，顺序固定：复检 → 强制备份 → 类型保持写入 → 写后校验 → 广播）：`mutate`（精确过滤 / 排列校验的重排）→ 写回前强制 `backup`（.reg 导出）→ `registry` 类型保持写入 → `broadcast`（WM_SETTINGCHANGE）。`restore` 从 .reg 备份整键还原（值类型以备份为准）。
 - `snapshot` 保存体检快照，供 `diff` 对比"上次体检以来 PATH 变了什么"。
 
 ## Hard constraints

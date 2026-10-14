@@ -107,9 +107,25 @@ if ($parts.Count -ge 2) {
     $out = RunBin @("diff", "-snapshot-dir", $snapDir)
     Assert ($LASTEXITCODE -eq 1) ("交换条目 diff exit=1 (got " + $LASTEXITCODE + ")")
     Assert ($out -match '\[顺序\]') "diff 报告顺序变化"
+
+    # ---- 9. reorder 子命令换回顺序（-from 1 -to 2 恰为逆操作），逐字节还原基线 ----
+    [void](RunBin @("reorder", "-scope", "user", "-from", "1", "-to", "2", "-y", "-backup-dir", $bakDir))
+    $afterReorder = PathState
+    Assert ($afterReorder.Raw -ceq $base.Raw) "reorder 后与基线逐字节一致"
+    Assert ($afterReorder.Kind -eq $base.Kind) "reorder 后值类型不变"
 }
 
-# ---- 9. 回到基线 diff 归零；最后整体还原到脚本开始前的原始状态 ----
+# ---- 10. restore 整键还原：备份基线态，注入垃圾条目，再用备份还原 ----
+[void](RunBin @("backup", "-scope", "user", "-o", $bakDir))
+$baseBackup = Get-ChildItem $bakDir -Filter '*user*.reg' | Sort-Object Name | Select-Object -Last 1
+Assert ($null -ne $baseBackup) "找到基线态备份文件"
+SetPath ($base.Raw + ';C:\envwarden-smoke-junk') $base.Kind
+[void](RunBin @("restore", "-y", "-backup-dir", $bakDir, $baseBackup.FullName))
+$afterRestore = PathState
+Assert ($afterRestore.Raw -ceq $base.Raw) "restore 后与基线逐字节一致"
+Assert ($afterRestore.Kind -eq $base.Kind) "restore 后值类型不变"
+
+# ---- 11. 回到基线 diff 归零；最后整体还原到脚本开始前的原始状态 ----
 SetPath $base.Raw $base.Kind
 $out = RunBin @("diff", "-snapshot-dir", $snapDir)
 Assert ($LASTEXITCODE -eq 0) ("基线状态 diff 无变化 exit=0 (got " + $LASTEXITCODE + ")")
