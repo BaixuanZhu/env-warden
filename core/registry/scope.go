@@ -37,3 +37,15 @@ func (s Scope) KeyPath() string {
 		return ""
 	}
 }
+
+// ParseScope 解析 String() 输出的小写作用域名；不识别的输入返回 false。
+func ParseScope(s string) (Scope, bool) {
+	switch s {
+	case "user":
+		return ScopeUser, true
+	case "system":
+		return ScopeSystem, true
+	default:
+		return 0, false
+	}
+}

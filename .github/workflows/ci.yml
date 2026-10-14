@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    # 单元测试与构建：真注册表只读（ReadPathLive 等），windows runner 上可直接跑
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.x"
+      - name: gofmt 检查（必须无输出）
+        shell: bash
+        run: |
+          out=$(gofmt -l .)
+          if [ -n "$out" ]; then echo "未格式化的文件:"; echo "$out"; exit 1; fi
+      - run: go vet ./...
+      - run: go build ./...
+      - run: go test ./...
+
+  smoke:
+    # 真实环境冒烟：在临时 runner 上执行备份/清理/快照/diff 全链路（含 HKCU 写入与还原）
+    runs-on: windows-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.x"
+      - run: go build -o bin/envwarden.exe ./cmd/envwarden
+      - name: 全链路冒烟（HKCU，自恢复）
+        shell: pwsh
+        run: ./scripts/smoke.ps1 -Bin bin/envwarden.exe -WorkDir "$env:RUNNER_TEMP\envwarden-smoke"

@@ -12,6 +12,7 @@ import (
 
 	"envwarden/core/detect"
 	"envwarden/core/registry"
+	"envwarden/core/snapshot"
 )
 
 // defaultCommands 是工具链回归的缺省命令清单。
@@ -23,6 +24,8 @@ const defaultCommands = "node,npm,npx,git,java,mvn"
 func RunCheck(args []string) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	cmdsFlag := fs.String("cmds", defaultCommands, "工具链回归要解析的命令清单（逗号分隔）")
+	snapFlag := fs.Bool("snapshot", true, "体检后保存快照（供 diff 对比；-snapshot=false 跳过）")
+	snapDirFlag := fs.String("snapshot-dir", defaultSnapshotDir(), "快照存储目录")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -37,6 +40,14 @@ func RunCheck(args []string) int {
 	rep := detect.Check(system, user, vars, pathext, commands, npmPrefix())
 
 	renderCheckReport(os.Stdout, rep)
+	if *snapFlag {
+		path, err := snapshot.Save(*snapDirFlag, snapshot.FromPathData(system, user, time.Now(), "check"))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "envwarden check: 快照保存失败（不影响体检结果）: %v\n", err)
+		} else {
+			fmt.Printf("已保存体检快照: %s\n", path)
+		}
+	}
 	if rep.ProblemCount() > 0 {
 		return 1
 	}

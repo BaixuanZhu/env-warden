@@ -45,6 +45,16 @@ func (k ValueKind) String() string {
 	}
 }
 
+// ParseValueKind 解析 String() 输出的类型名；不识别的输入返回错误。
+func ParseValueKind(s string) (ValueKind, error) {
+	for _, k := range []ValueKind{KindNone, KindSZ, KindExpandSZ, KindBinary, KindDWORD, KindMultiSZ, KindQWord} {
+		if k.String() == s {
+			return k, nil
+		}
+	}
+	return 0, fmt.Errorf("parse value kind: unknown kind %q", s)
+}
+
 var (
 	// ErrPathNotFound 表示作用域键内不存在名为 Path 的值。
 	ErrPathNotFound = errors.New("path value not found")
