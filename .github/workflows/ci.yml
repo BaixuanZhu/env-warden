@@ -11,8 +11,8 @@ jobs:
     # 单元测试与构建：真注册表只读（ReadPathLive 等），windows runner 上可直接跑
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.26.x"
       - name: gofmt 检查（必须无输出）
@@ -31,8 +31,8 @@ jobs:
     runs-on: windows-latest
     needs: test
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.26.x"
       - run: go build -o bin/envwarden.exe ./cmd/envwarden
