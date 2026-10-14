@@ -45,7 +45,15 @@ func ScanEntries(system, user *registry.PathData, vars Vars) *ScannedEntries {
 	}
 }
 
-// scanEntriesFor 展开单个作用域的条目并逐个做存在性检查。
+// dirExists 判断展开后的目录是否存在于磁盘。
+// 刻意做成包级变量作为测试接缝：夹具验收用例注入假实现固定"哪些路径存活"，
+// 使死条目基线不依赖运行机器的磁盘状态（CI runner 没有 F:/G:/E: 等盘）。
+var dirExists = func(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// scanScope 展开单个作用域的条目并逐个做存在性检查。
 func scanScope(pd *registry.PathData, vars Vars) []EntryFinding {
 	if pd == nil {
 		return nil
@@ -57,14 +65,13 @@ func scanScope(pd *registry.PathData, vars Vars) []EntryFinding {
 			continue
 		}
 		expanded := ExpandEnv(trimmed, vars)
-		_, err := os.Stat(expanded)
 		out = append(out, EntryFinding{
 			Scope:    pd.Scope,
 			Index:    i,
 			Entry:    entry,
 			Trimmed:  trimmed,
 			Expanded: expanded,
-			Exists:   err == nil,
+			Exists:   dirExists(expanded),
 		})
 	}
 	return out

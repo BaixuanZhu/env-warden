@@ -24,9 +24,9 @@ func mkSnap(userRaw, userKind, sysRaw, sysKind string, at time.Time) *Snapshot {
 	}
 }
 
-// at 返回固定时刻，保证测试可复现。
+// at 返回固定时刻（UTC，保证在任意时区的机器上可复现）。
 func at() time.Time {
-	return time.Date(2026, 10, 14, 21, 0, 0, 0, time.Local)
+	return time.Date(2026, 10, 14, 21, 0, 0, 0, time.UTC)
 }
 
 func TestSaveLoadRoundTrip(t *testing.T) {
@@ -43,7 +43,8 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got.CreatedAt != snap.CreatedAt || len(got.Paths) != 2 {
+	// 时间经 JSON 回环 location 会变（Local -> 固定时区），必须按时刻比较。
+	if !got.CreatedAt.Equal(snap.CreatedAt) || len(got.Paths) != 2 {
 		t.Fatalf("回读不一致: %+v", got)
 	}
 	for i := range got.Paths {

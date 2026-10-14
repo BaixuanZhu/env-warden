@@ -54,31 +54,47 @@ func loadFixtures(t *testing.T) (system, user *registry.PathData, vars Vars) {
 	return system, user, vars
 }
 
+// fixtureDead 清理脚本核定的 14 个死条目原文（7 用户 + 7 系统）。
+var fixtureDead = []string{
+	`C:\Users\zbxComputer\AppData\Local\Temp\ps-hook-test\home\current\bin`,
+	`C:\Users\ZBXCOM~1\AppData\Local\Temp\jvmtest\home\current\bin`,
+	`C:\Users\zbxComputer\go\bin`,
+	`C:\Users\zbxComputer\AppData\Local\Programs\OpenAI\Codex\bin`,
+	`C:\Users\zbxComputer\AppData\Local\UniGetUI\Chocolatey\bin`,
+	`I:\Cpolar`,
+	`I:\IntelliJ IDEA 2022.1.31\bin`,
+	`F:\Downloads\apache-jmeter-5.6.2\bin`,
+	`F:\微信web开发者工具\dll`,
+	`E:\andoidSDK\platform-tools`,
+	`E:\Tesseract-OCR`,
+	`C:\ProgramData\chocolatey\bin`,
+	`F:\NodeJS\node_global`,
+	`D:\BtSoft\panel\script`,
+}
+
+// useFixtureDisk 注入假磁盘：仅 2026-10-13 核定的死条目（按同口径展开）不存在，
+// 其余路径一律存在。夹具数据来自本机真实 PATH，CI runner 没有对应磁盘，
+// 不注入则死条目基线必然随机器漂移。
+func useFixtureDisk(t *testing.T, vars Vars) {
+	t.Helper()
+	deadSet := make(map[string]bool, len(fixtureDead))
+	for _, d := range fixtureDead {
+		deadSet[ExpandEnv(strings.TrimSpace(d), vars)] = true
+	}
+	orig := dirExists
+	dirExists = func(path string) bool { return !deadSet[path] }
+	t.Cleanup(func() { dirExists = orig })
+}
+
 // TestFixtureDeadEntries 是 M1 验收基线：对修复前夹具跑死条目检测，
 // 必须恰好检出 14 个死条目（7 用户 + 7 系统，清单来自清理脚本）且零误报。
 // 期望值已于 2026-10-13 逐一核对：14 个目录当日均不存在，存活见证均在位。
 func TestFixtureDeadEntries(t *testing.T) {
 	system, user, vars := loadFixtures(t)
+	useFixtureDisk(t, vars)
 	dead := ScanEntries(system, user, vars).DeadEntries()
 
-	want := []string{
-		// 用户级 7 条（clean-user-path.ps1 的 $dead 清单）
-		`C:\Users\zbxComputer\AppData\Local\Temp\ps-hook-test\home\current\bin`,
-		`C:\Users\ZBXCOM~1\AppData\Local\Temp\jvmtest\home\current\bin`,
-		`C:\Users\zbxComputer\go\bin`,
-		`C:\Users\zbxComputer\AppData\Local\Programs\OpenAI\Codex\bin`,
-		`C:\Users\zbxComputer\AppData\Local\UniGetUI\Chocolatey\bin`,
-		`I:\Cpolar`,
-		`I:\IntelliJ IDEA 2022.1.31\bin`,
-		// 系统级 7 条（clean-system-path.ps1 的 $dead 清单）
-		`F:\Downloads\apache-jmeter-5.6.2\bin`,
-		`F:\微信web开发者工具\dll`,
-		`E:\andoidSDK\platform-tools`,
-		`E:\Tesseract-OCR`,
-		`C:\ProgramData\chocolatey\bin`,
-		`F:\NodeJS\node_global`,
-		`D:\BtSoft\panel\script`,
-	}
+	want := fixtureDead
 	if len(dead) != len(want) {
 		for _, d := range dead {
 			t.Logf("实际检出: %s#%d %s", d.Scope, d.Index, d.Entry)
@@ -119,6 +135,7 @@ func TestFixtureNoDuplicates(t *testing.T) {
 // 本用例验证"prefix 在 PATH 上"判定的正路。
 func TestFixtureNpmPrefixOnPath(t *testing.T) {
 	system, user, vars := loadFixtures(t)
+	useFixtureDisk(t, vars)
 	scanned := ScanEntries(system, user, vars)
 	res := CheckNpmPrefix(`C:\Users\zbxComputer\AppData\Roaming\npm`, scanned)
 	if res.Status != NpmOK {

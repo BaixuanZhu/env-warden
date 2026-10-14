@@ -1,7 +1,5 @@
 package detect
 
-import "os"
-
 // NpmStatus npm 全局 prefix 体检结论。
 type NpmStatus int
 
@@ -28,7 +26,7 @@ func CheckNpmPrefix(prefix string, scanned *ScannedEntries) NpmResult {
 	if prefix == "" {
 		return NpmResult{Status: NpmUnavailable}
 	}
-	if _, err := os.Stat(prefix); err != nil {
+	if !dirExists(prefix) {
 		return NpmResult{Status: NpmUnavailable, Prefix: prefix}
 	}
 	want := NormalizeEntry(prefix)
